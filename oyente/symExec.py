@@ -17,6 +17,9 @@ from z3 import *
 from vargenerator import *
 from ethereum_data import *
 from basicblock import BasicBlock
+# pilatus
+from trace import Trace
+from instruction import Instruction
 from analysis import *
 from test_evm.global_test_params import (TIME_OUT, UNKNOWN_INSTRUCTION,
                                          EXCEPTION, PICKLE_PATH)
@@ -176,6 +179,14 @@ def initGlobalVars():
     if global_params.REPORT_MODE:
         rfile = open(g_disasm_file + '.report', 'w')
 
+    # pilatus: collected symbol traces
+    global symbol_traces
+    symbol_traces = []
+
+    # pilatus: current symbol trace
+    global current_trace
+    current_trace = Trace()
+
 def is_testing_evm():
     return global_params.UNIT_TEST != 0
 
@@ -226,7 +237,16 @@ def build_cfg_and_analyze():
         construct_bb()
         construct_static_edges()
         full_sym_exec()  # jump targets are constructed on the fly
+        # pilatus
+        print_symbol_traces()
 
+# pilatus
+def print_symbol_traces():
+    global symbol_traces
+    log.info("==== Symbol Traces ====")
+    log.info("Number of traces: %d" % len(symbol_traces))
+    for trace in symbol_traces:
+        trace.display()
 
 def print_cfg():
     for block in vertices.values():
@@ -557,6 +577,9 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
     global all_gs
     global results
     global g_src_map
+    # pilatus
+    global symbol_traces
+    global current_trace
 
     visited = params.visited
     stack = params.stack
@@ -645,6 +668,9 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
                 pass
 
         log.debug("TERMINATING A PATH ...")
+        # pilatus: add a symbol path, then reset current trace
+        symbol_traces.append(current_trace)
+        current_trace = Trace()
         display_analysis(analysis)
         if is_testing_evm():
             compare_storage_and_gas_unit_test(global_state, analysis)
@@ -737,6 +763,9 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
     global g_src_map
     global calls_affect_state
     global data_source
+    # pilatus
+    global symbol_traces
+    global current_trace
 
     stack = params.stack
     mem = params.mem
@@ -752,6 +781,9 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
 
     instr_parts = str.split(instr, ' ')
     opcode = instr_parts[0]
+    # pilatus
+    symbol_ins = Instruction(opcode)
+    current_trace.add_to_trace(symbol_ins)
 
     if opcode == "INVALID":
         return
@@ -1702,6 +1734,8 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
         if len(stack) > 0:
             global_state["pc"] = global_state["pc"] + 1
             position = stack.pop(0)
+            # pilatus
+            current_trace.get_last_instruction().add_operand(position)
             if isReal(position) and position in global_state["Ia"]:
                 value = global_state["Ia"][position]
                 stack.insert(0, value)
@@ -1748,6 +1782,9 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             global_state["pc"] = global_state["pc"] + 1
             stored_address = stack.pop(0)
             stored_value = stack.pop(0)
+            # pilatus
+            current_trace.get_last_instruction().add_operand(stored_address)
+            current_trace.get_last_instruction().add_operand(stored_value)
             if isReal(stored_address):
                 # note that the stored_value could be unknown
                 global_state["Ia"][stored_address] = stored_value
@@ -1888,6 +1925,10 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             size_data_ouput = stack.pop(0)
             # in the paper, it is shaky when the size of data output is
             # min of stack[6] and the | o |
+
+            # pilatus
+            current_trace.get_last_instruction().add_operand(recipient)
+            current_trace.get_last_instruction().add_operand(transfer_amount)
 
             if isReal(transfer_amount):
                 if transfer_amount == 0:
