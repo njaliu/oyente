@@ -20,6 +20,8 @@ from basicblock import BasicBlock
 # pilatus
 from trace import Trace
 from instruction import Instruction
+import search
+
 from analysis import *
 from test_evm.global_test_params import (TIME_OUT, UNKNOWN_INSTRUCTION,
                                          EXCEPTION, PICKLE_PATH)
@@ -180,6 +182,9 @@ def initGlobalVars():
         rfile = open(g_disasm_file + '.report', 'w')
 
     # pilatus: collected symbol traces
+    global USED_OPCODES
+    USED_OPCODES = ["MLOAD", "MSTORE", "SLOAD", "SSTORE", "CALL", "SHA3", "JUMP", "JUMPI", "JUMPDEST"]
+
     global symbol_traces
     symbol_traces = []
 
@@ -240,6 +245,7 @@ def build_cfg_and_analyze():
         # pilatus
         print_symbol_traces()
 
+
 # pilatus
 def print_symbol_traces():
     global symbol_traces
@@ -247,6 +253,9 @@ def print_symbol_traces():
     log.info("Number of traces: %d" % len(symbol_traces))
     for trace in symbol_traces:
         trace.display()
+    cs_len, cs = search.lcs_opcode(symbol_traces[1].trace, symbol_traces[3].trace)
+    log.info("# LCS: %s, %d" % (cs, cs_len))
+
 
 def print_cfg():
     for block in vertices.values():
@@ -782,8 +791,9 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
     instr_parts = str.split(instr, ' ')
     opcode = instr_parts[0]
     # pilatus
-    symbol_ins = Instruction(opcode)
-    current_trace.add_to_trace(symbol_ins)
+    if opcode in USED_OPCODES:
+        symbol_ins = Instruction(opcode)
+        current_trace.add_to_trace(symbol_ins)
 
     if opcode == "INVALID":
         return
