@@ -6,8 +6,21 @@ def is_matched(a, b):
     return (a == b)
 
 def is_greater_equal(a, b):
-	return (a >= b)
+    return (a >= b)
 
+# retrieve a symbol sub-trace from full_trace for an input opcode_list
+def retrieve_subtrace(opcode_list, full_trace, m, n, picked):
+    if m == 0 or n == 0:
+        return picked
+
+    if is_matched(opcode_list[m-1], full_trace[n-1]):
+        picked.insert(0, full_trace[n-1])
+        #print picked
+        return retrieve_subtrace(opcode_list, full_trace, m-1, n-1, picked)
+
+    return retrieve_subtrace(opcode_list, full_trace, m, n-1, picked)
+
+#print retrieve_subtrace("abc", "abdefc", 3, 6, [])
 
 # longest common subsequence (LCS) search
 # input as list, python 2.7
