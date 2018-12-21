@@ -255,6 +255,7 @@ def print_symbol_traces():
         trace.display()
     cs_len, cs = search.lcs_opcode(symbol_traces[1].trace, symbol_traces[3].trace)
     log.info("# LCS: %s, %d" % (cs, cs_len))
+    search.compute_trace_similarity(symbol_traces[1].trace, symbol_traces[3].trace)
 
 
 def print_cfg():
