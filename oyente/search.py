@@ -54,19 +54,12 @@ def match_trace(target, query):
 
     for i in range(len_para):
         for j in range(i+1, len_para):
-            if is_matched_with_parameter(t_para[i], t_para[j]):
-                t_dependency[i][j] = 1
-                if is_matched_with_parameter(q_para[i], q_para[j]):
-                    if q_dependency[i][j] == 0:
-                        matched_check += 1
-                    q_dependency[i][j] = 1
-
-            if is_matched_with_parameter(q_para[i], q_para[j]):
-                q_dependency[i][j] = 1
+            if is_matched_with_parameter(t_para[i], t_para[j]) == is_matched_with_parameter(q_para[i], q_para[j]):
+                matched_check += 1
                 if is_matched_with_parameter(t_para[i], t_para[j]):
-                    if t_dependency[i][j] == 0:
-                        matched_check += 1
                     t_dependency[i][j] = 1
+                if is_matched_with_parameter(q_para[i], q_para[j]):
+                    q_dependency[i][j] = 1
 
     return (matched_check + matched_must), total
 

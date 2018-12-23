@@ -21,6 +21,7 @@ from basicblock import BasicBlock
 from trace import Trace
 from instruction import Instruction
 import search
+import evaluate
 
 from analysis import *
 from test_evm.global_test_params import (TIME_OUT, UNKNOWN_INSTRUCTION,
@@ -254,8 +255,10 @@ def print_symbol_traces():
     for trace in symbol_traces:
         trace.display()
     cs_len, cs = search.lcs_opcode(symbol_traces[1].trace, symbol_traces[3].trace)
+    #cs_len, cs = search.lcs_opcode(symbol_traces[1].trace, evaluate.EVIL_CALLER.trace)
     log.info("# LCS: %s, %d" % (cs, cs_len))
     search.compute_trace_similarity(symbol_traces[1].trace, symbol_traces[3].trace)
+    #search.compute_trace_similarity(symbol_traces[1].trace, evaluate.EVIL_CALLER.trace)
 
 
 def print_cfg():
