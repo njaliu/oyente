@@ -1,32 +1,90 @@
 import six
-import sys
+import evaluate
 #from z3 import *
 
 
+# Constants
+PILATUS_INFO = "Pilatus Info: "
+SEARCH_SIZE = 5
+
+
 def is_matched(a, b):
-    return (a == b)
+    return a == b
 
 
 def is_greater_equal(a, b):
-    return (a >= b)
+    return a >= b
 
 
 def is_matched_with_parameter(a, b):
     return is_matched(a.operands[0], b.operands[0])
 
 
+# main entry of vulnerability search
+def search_vulnerability(traces):
+    vulnerabilities = []
+    n_candidate, call_traces = generate_candidate(traces)
+
+    if n_candidate == 0:
+        six.print_(PILATUS_INFO + "no message calls!")
+        return None
+    else:
+        rank_list = rank_trace(evaluate.EVIL_CALLER, call_traces, SEARCH_SIZE)
+        for tup in rank_list:
+            idx = tup[0]
+            vulnerabilities.append(call_traces[idx])
+        six.print_(PILATUS_INFO + "%d vulnerabilities found" % len(vulnerabilities))
+        return vulnerabilities
+
+
+# generate candidates traces for bug search
+def generate_candidate(candidates):
+    generated = []
+    for trace in candidates:
+        for instr in trace.trace:
+            if instr.get_opcode() == "CALL":
+                generated.append(trace)
+                break
+
+    if len(generated) == 0:
+        six.print_("ERROR: no candidates generated")
+        return 0, []
+    else:
+        return len(generated), generated
+
+
+# rank query_traces based on their similarity to target and pick top_n
+def rank_trace(target, query_traces, top_n):
+    n = len(query_traces)
+    len_t = len(target)
+    jaccard = {}
+    for i in range(n):
+        len_q = len(query_traces[i])
+        len_cs, matched_prop, total_prop = compute_trace_similarity(target, query_traces[i])
+        cs_prop = (float)(len_cs * matched_prop / total_prop)
+        jaccard[i] = (float) (cs_prop / (len_t + len_q - cs_prop))
+
+    rank = sorted(jaccard.items(), key= lambda x:x[1], reverse=True)
+    if len(rank) < top_n:
+        six.print_("ERROR: top %d is larger than rank length %d" % (top_n, len(rank)))
+        return []
+    else:
+        return rank[:top_n]
+
+
 # compute similarity of two symbolic traces
 def compute_trace_similarity(target, query):
     len_t = len(target)
     len_q = len(query)
-    lencs, cs = lcs_opcode(target, query)
-    target_sub = retrieve_subtrace_evm(cs, target, lencs, len_t, [])
-    query_sub = retrieve_subtrace_evm(cs, query, lencs, len_q, [])
+    len_cs, cs = lcs_opcode(target, query)
+    target_sub = retrieve_subtrace_evm(cs, target, len_cs, len_t, [])
+    query_sub = retrieve_subtrace_evm(cs, query, len_cs, len_q, [])
 
     if len(target_sub) == len(query_sub):
         matched, total = match_trace(target_sub, query_sub)
         six.print_("Matched: %d, Total: %d" % (matched, total))
-        return float(lencs * matched / total)
+        return (len_cs, matched, total)
+        #return float(len_cs * matched / total)
     else:
         six.print_("Align ERROR: target length %d, query length %d" % (len(target_sub), len(query_sub)))
         return -1
