@@ -56,18 +56,18 @@ def generate_candidate(candidates):
 # rank query_traces based on their similarity to target and pick top_n
 def rank_trace(target, query_traces, top_n):
     n = len(query_traces)
-    len_t = len(target)
+    len_t = len(target.get_trace())
     jaccard = {}
     for i in range(n):
-        len_q = len(query_traces[i])
-        len_cs, matched_prop, total_prop = compute_trace_similarity(target, query_traces[i])
+        len_q = len(query_traces[i].get_trace())
+        len_cs, matched_prop, total_prop = compute_trace_similarity(target.get_trace(), query_traces[i].get_trace())
         cs_prop = (float)(len_cs * matched_prop / total_prop)
         jaccard[i] = (float) (cs_prop / (len_t + len_q - cs_prop))
 
     rank = sorted(jaccard.items(), key= lambda x:x[1], reverse=True)
     if len(rank) < top_n:
-        six.print_("ERROR: top %d is larger than rank length %d" % (top_n, len(rank)))
-        return []
+        six.print_("WARN: top %d is larger than rank length %d" % (top_n, len(rank)))
+        return rank
     else:
         return rank[:top_n]
 
@@ -164,6 +164,8 @@ def lcs_opcode(s1, s2):
                     to_append.append(str(s1[i].opcode))
                     matrix[i][j] = to_append
             else:
+                matrix[i][j] = max(matrix[i-1][j], matrix[i][j-1], key=len)
+                '''
                 if len(matrix[i-1][j]) > 0 and len(matrix[i][j-1]) > 0:
                     if is_greater_equal(matrix[i-1][j][0], matrix[i][j-1][0]):
                         pick = matrix[i-1][j]
@@ -175,6 +177,7 @@ def lcs_opcode(s1, s2):
                     elif len(matrix[i][j-1]) == 0:
                         pick = matrix[i-1][j]
                 matrix[i][j] = pick[:]
+                '''
 
     cs = matrix[-1][-1]
 
