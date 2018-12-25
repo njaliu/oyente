@@ -41,10 +41,8 @@ def search_vulnerability(traces):
 def generate_candidate(candidates):
     generated = []
     for trace in candidates:
-        for instr in trace.trace:
-            if instr.get_opcode() == "CALL":
-                generated.append(trace)
-                break
+        if trace.get_callable():
+            generated.append(trace)
 
     if len(generated) == 0:
         six.print_("ERROR: no candidates generated")

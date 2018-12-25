@@ -683,6 +683,7 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
 
         log.debug("TERMINATING A PATH ...")
         # pilatus: add a symbol path, then reset current trace
+        current_trace.set_path_conditions(path_conditions_and_vars["path_condition"])
         symbol_traces.append(current_trace)
         current_trace = Trace()
         display_analysis(analysis)
@@ -1944,6 +1945,10 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             # pilatus
             current_trace.get_last_instruction().add_operand(recipient)
             current_trace.get_last_instruction().add_operand(transfer_amount)
+            current_trace.set_callable(True)
+            call_loc = g_src_map.get_location(global_state["pc"] - 1)
+            call_line = call_loc['begin']['line'] + 1
+            current_trace.set_line(call_line)
 
             if isReal(transfer_amount):
                 if transfer_amount == 0:
