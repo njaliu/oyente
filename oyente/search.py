@@ -1,11 +1,21 @@
 import six
 import evaluate
-#from z3 import *
+import math
+from trace import Trace
+from z3 import *
 
 
 # Constants
 PILATUS_INFO = "Pilatus Info: "
 SEARCH_SIZE = 5
+VECTOR = {"JUMP": 0,
+          "JUMPI": 1,
+          "SHA3": 2,
+          "MLOAD": 3,
+          "MSTORE": 4,
+          "SLOAD": 5,
+          "SSTORE": 6,
+          "CALL": 7}
 
 
 def is_matched(a, b):
@@ -21,34 +31,119 @@ def is_matched_with_parameter(a, b):
 
 
 # main entry of vulnerability search
-def search_vulnerability(traces):
-    vulnerabilities = []
-    n_candidate, call_traces = generate_candidate(traces)
+def search_vulnerability(traces, goal):
+    # EC: Evil Callee, FR: Front Runner, BG: Broken Guard
+    vulnerabilities = {"EC": [], "FR": [], "BG": []}
+    n_call, call_traces, n_state, state_traces = group_traces(traces)
 
-    if n_candidate == 0:
+    if n_call == 0:
         six.print_(PILATUS_INFO + "no message calls!")
         return None
     else:
-        rank_list = rank_trace(evaluate.EVIL_CALLER, call_traces, SEARCH_SIZE)
-        for tup in rank_list:
-            idx = tup[0]
-            vulnerabilities.append(call_traces[idx])
-        six.print_(PILATUS_INFO + "%d vulnerabilities found" % len(vulnerabilities))
-        return vulnerabilities
+        # search for EC
+        if goal == "EC":
+            ec_rank_list = rank_trace(evaluate.EVIL_CALLEE, call_traces, SEARCH_SIZE)
+            for tup in ec_rank_list:
+                idx = tup[0]
+                vulnerabilities["EC"].append(call_traces[idx])
+            six.print_(PILATUS_INFO + "%d Evil Callee found" % len(vulnerabilities["EC"]))
+
+        # search for FR
+        if goal == "FR":
+            for call_trace in call_traces:
+                len_cs, cs = lcs_opcode(evaluate.EVIL_CALLEE, call_trace)
+                sub_trace = retrieve_subtrace_evm(cs, evaluate.EVIL_CALLEE, len_cs, len(evaluate.EVIL_CALLEE), [])
+                unmatched_idx, unmatched = retrieve_unmatched_evm(evaluate.EVIL_CALLEE, sub_trace)
+                len_fr, fr_traces = generate_cross_tx_traces(state_traces, call_trace, unmatched)
+                fr_rank_list = rank_trace(evaluate.EVIL_CALLEE, fr_traces, SEARCH_SIZE)
+                for tup in fr_rank_list:
+                    idx = tup[0]
+                    vulnerabilities["FR"].append(fr_traces[idx])
+                six.print_(PILATUS_INFO + "%d Front Runner found" % len(vulnerabilities["FR"]))
+
+        # search for BG
+        if goal == "BG":
+            for call_trace in call_traces:
+                len_cs, cs = lcs_opcode(evaluate.EVIL_CALLEE, call_trace)
+                sub_trace = retrieve_subtrace_evm(cs, evaluate.EVIL_CALLEE, len_cs, len(evaluate.EVIL_CALLEE), [])
+                unmatched_idx, unmatched = retrieve_unmatched_evm(evaluate.EVIL_CALLEE, sub_trace)
+                len_bg, bg_traces = generate_cross_tx_traces(state_traces, call_trace, unmatched)
+                bg_rank_list = rank_trace(evaluate.EVIL_CALLEE, bg_traces, SEARCH_SIZE)
+                for tup in bg_rank_list:
+                    idx = tup[0]
+                    vulnerabilities["FR"].append(bg_traces[idx])
+                six.print_(PILATUS_INFO + "%d Broken Guard found" % len(vulnerabilities["BG"]))
+
+        return vulnerabilities["EC"]
 
 
 # generate candidates traces for bug search
-def generate_candidate(candidates):
-    generated = []
-    for trace in candidates:
+def group_traces(traces):
+    call_traces = []
+    state_traces = []
+    for trace in traces:
         if trace.get_callable():
-            generated.append(trace)
+            call_traces.append(trace)
+        else:
+            state_traces.append(trace)
 
-    if len(generated) == 0:
-        six.print_("ERROR: no candidates generated")
-        return 0, []
+    if len(call_traces) == 0:
+        six.print_("ERROR: no callable traces generated")
+        return None
+    elif len(state_traces) == 0:
+        six.print_(PILATUS_INFO + "no state traces generated")
+        return len(call_traces), call_traces, 0, []
     else:
-        return len(generated), generated
+        return len(call_traces), call_traces, len(state_traces), state_traces
+
+
+# generate a sorted list of cross transaction traces
+def generate_cross_tx_traces(state_traces, call_trace, unmatched_trace):
+    generated = []
+    distance_dict = {}
+    for i in range(len(state_traces)):
+        st = state_traces[i]
+        d = calculate_trace_distance(st, unmatched_trace)
+        if d != -1:
+            distance_dict[i] = d
+
+    dist_sorted_tup = sorted(distance_dict.items(), key=lambda x: x[1])
+    for tup in dist_sorted_tup:
+        s = state_traces[tup[0]]
+        if is_mergable(s, call_trace):
+            generated.append(merge_trace(s, call_trace))
+        else:
+            six.print_(PILATUS_INFO + "traces at line %s and %s cannot be merged." % (s.get_lines(), call_trace.get_lines()))
+
+    return len(generated), generated
+
+
+# merge two symbolic traces
+def merge_trace(t1, t2):
+    t = Trace()
+    t.set_trace(t1.get_trace() + t2.get_trace())
+    t.set_path_conditions(t1.get_path_conditions() + t2.get_path_conditions())
+    t.set_callable(t1.get_callable() or t2.get_callable())
+    t.set_lines(t1.get_lines() + t2.get_lines())
+
+    return t
+
+
+# check if two traces can be merged
+def is_mergable(t1, t2):
+    merged_path_conditions = t1.get_path_conditions() + t2.get_path_conditions()
+    solver = Solver()
+    solver.push()
+    for c in merged_path_conditions:
+        solver.add(c)
+
+    if solver.check() == unsat:
+        solver.pop()
+        return False
+
+    solver.pop()
+
+    return True
 
 
 # rank query_traces based on their similarity to target and pick top_n
@@ -86,6 +181,49 @@ def compute_trace_similarity(target, query):
     else:
         six.print_("Align ERROR: target length %d, query length %d" % (len(target_sub), len(query_sub)))
         return -1
+
+
+# calculate Euclidean Distance of two given traces
+# trace vector: [JUMP, JUMPI, SHA3, MLOAD, MSTORE, SLOAD, SSTORE, CALL]
+def calculate_trace_distance(candidate, unmatched):
+    v_c = trace2vec(candidate)
+    v_u = trace2vec(unmatched)
+    dist_square = 0
+    if len(v_c) != len(v_u):
+        six.print_("ERROR: vector length inconsistent. candidate: %d, unmatched: %d" % (len(v_c), len(v_u)))
+        return -1
+    for i in range(len(v_c)):
+        dist_square += math.pow(abs(v_c[i] - v_u[i]), 2)
+    dist = math.sqrt(dist_square)
+
+    return dist
+
+
+# convert trace to numeric vector
+def trace2vec(trace):
+    v = [0,0,0,0,0,0,0,0]
+    for instr in trace.trace:
+        op = instr.opcode
+        if op == "JUMP":
+            v[VECTOR["JUMP"]] += 1
+        elif op == "JUMPI":
+            v[VECTOR["JUMPI"]] += 1
+        elif op == "SHA3":
+            v[VECTOR["SHA3"]] += 1
+        elif op == "MLOAD":
+            v[VECTOR["MLOAD"]] += 1
+        elif op == "MSTORE":
+            v[VECTOR["MSTORE"]] += 1
+        elif op == "SLOAD":
+            v[VECTOR["SLOAD"]] += 1
+        elif op == "SSTORE":
+            v[VECTOR["SSTORE"]] += 1
+        elif op == "CALL":
+            v[VECTOR["CALL"]] += 1
+        else:
+            six.print_("ERROR: invalid opcode %s" % instr.opcode)
+
+    return v
 
 
 # match two symbolic traces by aligning their opcodes and parameters
@@ -131,6 +269,18 @@ def retrieve_subtrace_evm(opcode_list, full_trace, m, n, picked):
         return retrieve_subtrace_evm(opcode_list, full_trace, m-1, n-1, picked)
 
     return retrieve_subtrace_evm(opcode_list, full_trace, m, n-1, picked)
+
+
+# retrieve unmatched EVM trace
+def retrieve_unmatched_evm(origin, cs):
+    first = cs[0].opcode
+    n = len(origin.trace)
+    for i in range(n):
+        instr = origin.trace[n-1-i].opcode
+        if is_matched(first, instr):
+            unmatched_idx = n-1-i
+            return unmatched_idx, origin.trace[0:unmatched_idx]
+    return -1, []
 
 
 # retrieve a sub-trace from a full_trace

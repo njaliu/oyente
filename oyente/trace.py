@@ -6,7 +6,7 @@ class Trace:
         self.trace = []
         self.path_conditions = []
         self.callable = False
-        self.line = -1
+        self.lines = []
 
     def get_trace(self):
         return self.trace
@@ -33,18 +33,21 @@ class Trace:
     def set_callable(self, _callable):
         self.callable = _callable
 
-    def get_line(self):
-        return self.line
+    def get_lines(self):
+        return self.lines
 
-    def set_line(self, line):
-        self.line = line
+    def set_lines(self, lines):
+        self.lines = lines
+
+    def add_line(self, new_line):
+        self.lines.append(new_line)
 
     def display(self):
         six.print_("================")
         six.print_("trace size: %d" % len(self.trace))
         six.print_("path condition: %s" % str(self.path_conditions))
         six.print_("callable: %s" % str(self.callable))
-        six.print_("line: %d" % self.line)
+        six.print_("line: %s" % str(self.lines))
         for i in range(len(self.trace)):
             six.print_("instruction %d" % i)
             self.trace[i].display()

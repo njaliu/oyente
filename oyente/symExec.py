@@ -259,7 +259,7 @@ def print_symbol_traces():
     log.info("# LCS: %s, %d" % (cs, cs_len))
     #search.compute_trace_similarity(symbol_traces[1].trace, symbol_traces[3].trace)
     #search.compute_trace_similarity(symbol_traces[1].trace, evaluate.EVIL_CALLER.trace)
-    search.search_vulnerability(symbol_traces)
+    search.search_vulnerability(symbol_traces, "EC")
 
 
 def print_cfg():
@@ -1948,7 +1948,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             current_trace.set_callable(True)
             call_loc = g_src_map.get_location(global_state["pc"] - 1)
             call_line = call_loc['begin']['line'] + 1
-            current_trace.set_line(call_line)
+            current_trace.add_line(call_line)
 
             if isReal(transfer_amount):
                 if transfer_amount == 0:
