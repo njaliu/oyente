@@ -16,7 +16,7 @@ VECTOR = {"JUMP": 0,
           "SLOAD": 5,
           "SSTORE": 6,
           "CALL": 7}
-
+FUNCTION_HASH_Z3 = "Extract(255, 224, Id_1)"
 
 def is_matched(a, b):
     return a == b
@@ -52,7 +52,7 @@ def search_vulnerability(traces, goal):
         if goal == "FR":
             for call_trace in call_traces:
                 len_cs, cs = lcs_opcode(evaluate.EVIL_CALLEE, call_trace)
-                sub_trace = retrieve_subtrace_evm(cs, evaluate.EVIL_CALLEE, len_cs, len(evaluate.EVIL_CALLEE), [])
+                sub_trace = retrieve_subtrace_evm(cs, evaluate.EVIL_CALLEE, len_cs, len(evaluate.EVIL_CALLEE.trace), [])
                 unmatched_idx, unmatched = retrieve_unmatched_evm(evaluate.EVIL_CALLEE, sub_trace)
                 len_fr, fr_traces = generate_cross_tx_traces(state_traces, call_trace, unmatched)
                 fr_rank_list = rank_trace(evaluate.EVIL_CALLEE, fr_traces, SEARCH_SIZE)
@@ -65,7 +65,7 @@ def search_vulnerability(traces, goal):
         if goal == "BG":
             for call_trace in call_traces:
                 len_cs, cs = lcs_opcode(evaluate.EVIL_CALLEE, call_trace)
-                sub_trace = retrieve_subtrace_evm(cs, evaluate.EVIL_CALLEE, len_cs, len(evaluate.EVIL_CALLEE), [])
+                sub_trace = retrieve_subtrace_evm(cs, evaluate.EVIL_CALLEE, len_cs, len(evaluate.EVIL_CALLEE.trace), [])
                 unmatched_idx, unmatched = retrieve_unmatched_evm(evaluate.EVIL_CALLEE, sub_trace)
                 len_bg, bg_traces = generate_cross_tx_traces(state_traces, call_trace, unmatched)
                 bg_rank_list = rank_trace(evaluate.EVIL_CALLEE, bg_traces, SEARCH_SIZE)
@@ -131,7 +131,9 @@ def merge_trace(t1, t2):
 
 # check if two traces can be merged
 def is_mergable(t1, t2):
-    merged_path_conditions = t1.get_path_conditions() + t2.get_path_conditions()
+    t1_no_hash = remove_func_hash_constraints(t1.get_path_conditions())
+    t2_no_hash = remove_func_hash_constraints(t2.get_path_conditions())
+    merged_path_conditions = t1_no_hash + t2_no_hash
     solver = Solver()
     solver.push()
     for c in merged_path_conditions:
@@ -146,6 +148,16 @@ def is_mergable(t1, t2):
     return True
 
 
+# check if a Z3 constraint is checking first four-bytes of msg.data (function hash)
+def contains_func_hash(constraint):
+    return FUNCTION_HASH_Z3 in constraint
+
+
+# remove function has related constraints
+def remove_func_hash_constraints(path_conditions):
+    return [c for c in path_conditions if not contains_func_hash(str(c))]
+
+
 # rank query_traces based on their similarity to target and pick top_n
 def rank_trace(target, query_traces, top_n):
     n = len(query_traces)
@@ -153,7 +165,7 @@ def rank_trace(target, query_traces, top_n):
     jaccard = {}
     for i in range(n):
         len_q = len(query_traces[i].get_trace())
-        len_cs, matched_prop, total_prop = compute_trace_similarity(target.get_trace(), query_traces[i].get_trace())
+        len_cs, matched_prop, total_prop = compute_trace_similarity(target, query_traces[i])
         cs_prop = (float)(len_cs * matched_prop / total_prop)
         jaccard[i] = (float) (cs_prop / (len_t + len_q - cs_prop))
 
@@ -167,8 +179,8 @@ def rank_trace(target, query_traces, top_n):
 
 # compute similarity of two symbolic traces
 def compute_trace_similarity(target, query):
-    len_t = len(target)
-    len_q = len(query)
+    len_t = len(target.trace)
+    len_q = len(query.trace)
     len_cs, cs = lcs_opcode(target, query)
     target_sub = retrieve_subtrace_evm(cs, target, len_cs, len_t, [])
     query_sub = retrieve_subtrace_evm(cs, query, len_cs, len_q, [])
@@ -186,7 +198,7 @@ def compute_trace_similarity(target, query):
 # calculate Euclidean Distance of two given traces
 # trace vector: [JUMP, JUMPI, SHA3, MLOAD, MSTORE, SLOAD, SSTORE, CALL]
 def calculate_trace_distance(candidate, unmatched):
-    v_c = trace2vec(candidate)
+    v_c = trace2vec(candidate.trace)
     v_u = trace2vec(unmatched)
     dist_square = 0
     if len(v_c) != len(v_u):
@@ -202,7 +214,7 @@ def calculate_trace_distance(candidate, unmatched):
 # convert trace to numeric vector
 def trace2vec(trace):
     v = [0,0,0,0,0,0,0,0]
-    for instr in trace.trace:
+    for instr in trace:
         op = instr.opcode
         if op == "JUMP":
             v[VECTOR["JUMP"]] += 1
@@ -263,8 +275,8 @@ def retrieve_subtrace_evm(opcode_list, full_trace, m, n, picked):
     if m == 0 or n == 0:
         return picked
 
-    if is_matched(opcode_list[m-1], full_trace[n-1].opcode):
-        picked.insert(0, full_trace[n-1])
+    if is_matched(opcode_list[m-1], full_trace.trace[n-1].opcode):
+        picked.insert(0, full_trace.trace[n-1])
         #print picked
         return retrieve_subtrace_evm(opcode_list, full_trace, m-1, n-1, picked)
 
@@ -301,15 +313,15 @@ def retrieve_subtrace(opcode_list, full_trace, m, n, picked):
 # longest common subsequence (LCS) search
 # input as list, python 2.7
 def lcs_opcode(s1, s2):
-    matrix = [[ [] for x in range(len(s2))] for x in range(len(s1))]
-    for i in range(len(s1)):
-        for j in range(len(s2)):
-            if is_matched(s1[i].opcode, s2[j].opcode):
+    matrix = [[ [] for x in range(len(s2.trace))] for x in range(len(s1.trace))]
+    for i in range(len(s1.trace)):
+        for j in range(len(s2.trace)):
+            if is_matched(s1.trace[i].opcode, s2.trace[j].opcode):
                 if i == 0 or j == 0:
-                    matrix[i][j] = [str(s1[i].opcode)]
+                    matrix[i][j] = [str(s1.trace[i].opcode)]
                 else:
                     to_append = matrix[i-1][j-1][:] # copy
-                    to_append.append(str(s1[i].opcode))
+                    to_append.append(str(s1.trace[i].opcode))
                     matrix[i][j] = to_append
             else:
                 matrix[i][j] = max(matrix[i-1][j], matrix[i][j-1], key=len)

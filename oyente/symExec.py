@@ -254,12 +254,14 @@ def print_symbol_traces():
     log.info("Number of traces: %d" % len(symbol_traces))
     for trace in symbol_traces:
         trace.display()
-    cs_len, cs = search.lcs_opcode(symbol_traces[1].trace, symbol_traces[3].trace)
+    cs_len, cs = search.lcs_opcode(symbol_traces[1], symbol_traces[3])
     #cs_len, cs = search.lcs_opcode(symbol_traces[1].trace, evaluate.EVIL_CALLER.trace)
     log.info("# LCS: %s, %d" % (cs, cs_len))
     #search.compute_trace_similarity(symbol_traces[1].trace, symbol_traces[3].trace)
     #search.compute_trace_similarity(symbol_traces[1].trace, evaluate.EVIL_CALLER.trace)
-    search.search_vulnerability(symbol_traces, "EC")
+    #search.search_vulnerability(symbol_traces, "EC")
+    search.search_vulnerability(symbol_traces, "FR")
+    #search.search_vulnerability(symbol_traces, "BG")
 
 
 def print_cfg():
