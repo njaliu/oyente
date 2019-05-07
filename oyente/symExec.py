@@ -23,6 +23,10 @@ from test_evm.global_test_params import (TIME_OUT, UNKNOWN_INSTRUCTION,
 from vulnerability import CallStack, TimeDependency, MoneyConcurrency, Reentrancy, AssertionFailure, ParityMultisigBug2, IntegerUnderflow, IntegerOverflow
 import global_params
 
+# seraph
+from value_frame import *
+from constant import *
+
 log = logging.getLogger(__name__)
 
 UNSIGNED_BOUND_NUMBER = 2**256 - 1
@@ -787,8 +791,17 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
     elif opcode == "ADD":
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
-            second = stack.pop(0)
+            # first = stack.pop(0)
+            # second = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+            second_frame = stack.pop(0)
+            second = second_frame.get_value()
+            second_dep = second_frame.get_dep()
+
             # Type conversion is needed when they are mismatched
             if isReal(first) and isSymbolic(second):
                 first = BitVecVal(first, 256)
@@ -818,29 +831,56 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                         global_problematic_pcs['integer_overflow'].append(Overflow(global_state['pc'] - 1, solver.model()))
                         overflow_pcs.append(global_state['pc'] - 1)
                     solver.pop()
+            # stack.insert(0, computed)
 
-            stack.insert(0, computed)
+            # seraph
+            new_dep = first_dep + second_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "MUL":
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
-            second = stack.pop(0)
+            # first = stack.pop(0)
+            # second = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+            second_frame = stack.pop(0)
+            second = second_frame.get_value()
+            second_dep = second_frame.get_dep()
+
             if isReal(first) and isSymbolic(second):
                 first = BitVecVal(first, 256)
             elif isSymbolic(first) and isReal(second):
                 second = BitVecVal(second, 256)
             computed = first * second & UNSIGNED_BOUND_NUMBER
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
+
+            # seraph
+            new_dep = first_dep + second_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "SUB":
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
-            second = stack.pop(0)
+            # first = stack.pop(0)
+            # second = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+            second_frame = stack.pop(0)
+            second = second_frame.get_value()
+            second_dep = second_frame.get_dep()
+
             if isReal(first) and isSymbolic(second):
                 first = BitVecVal(first, 256)
                 computed = first - second
@@ -867,14 +907,28 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                         global_problematic_pcs['integer_underflow'].append(Underflow(global_state['pc'] - 1, solver.model()))
                     solver.pop()
 
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
+
+            # seraph
+            new_dep = first_dep + second_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "DIV":
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
-            second = stack.pop(0)
+            # first = stack.pop(0)
+            # second = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+            second_frame = stack.pop(0)
+            second = second_frame.get_value()
+            second_dep = second_frame.get_dep()
+
             if isAllReal(first, second):
                 if second == 0:
                     computed = 0
@@ -893,14 +947,28 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                     computed = UDiv(first, second)
                 solver.pop()
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
+
+            # seraph
+            new_dep = first_dep + second_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "SDIV":
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
-            second = stack.pop(0)
+            # first = stack.pop(0)
+            # second = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+            second_frame = stack.pop(0)
+            second = second_frame.get_value()
+            second_dep = second_frame.get_dep()
+
             if isAllReal(first, second):
                 first = to_signed(first)
                 second = to_signed(second)
@@ -935,14 +1003,28 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                     solver.pop()
                 solver.pop()
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
+
+            # seraph
+            new_dep = first_dep + second_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "MOD":
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
-            second = stack.pop(0)
+            # first = stack.pop(0)
+            # second = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+            second_frame = stack.pop(0)
+            second = second_frame.get_value()
+            second_dep = second_frame.get_dep()
+
             if isAllReal(first, second):
                 if second == 0:
                     computed = 0
@@ -965,14 +1047,28 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                 solver.pop()
 
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
+
+            # seraph
+            new_dep = first_dep + second_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "SMOD":
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
-            second = stack.pop(0)
+            # first = stack.pop(0)
+            # second = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+            second_frame = stack.pop(0)
+            second = second_frame.get_value()
+            second_dep = second_frame.get_dep()
+
             if isAllReal(first, second):
                 if second == 0:
                     computed = 0
@@ -1006,15 +1102,31 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                 solver.pop()
 
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
+
+            # seraph
+            new_dep = first_dep + second_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "ADDMOD":
         if len(stack) > 2:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
-            second = stack.pop(0)
-            third = stack.pop(0)
+            # first = stack.pop(0)
+            # second = stack.pop(0)
+            # third = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+            second_frame = stack.pop(0)
+            second = second_frame.get_value()
+            second_dep = second_frame.get_dep()
+            third_frame = stack.pop(0)
+            third = third_frame.get_value()
+            third_dep = third_frame.get_dep()
 
             if isAllReal(first, second, third):
                 if third == 0:
@@ -1036,15 +1148,32 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                     computed = Extract(255, 0, computed)
                 solver.pop()
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
+
+            # seraph
+            new_dep = first_dep + second_dep + third_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "MULMOD":
         if len(stack) > 2:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
-            second = stack.pop(0)
-            third = stack.pop(0)
+            # first = stack.pop(0)
+            # second = stack.pop(0)
+            # third = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+            second_frame = stack.pop(0)
+            second = second_frame.get_value()
+            second_dep = second_frame.get_dep()
+            third_frame = stack.pop(0)
+            third = third_frame.get_value()
+            third_dep = third_frame.get_dep()
+
 
             if isAllReal(first, second, third):
                 if third == 0:
@@ -1066,14 +1195,28 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                     computed = Extract(255, 0, computed)
                 solver.pop()
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
+
+            # seraph
+            new_dep = first_dep + second_dep + third_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "EXP":
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            base = stack.pop(0)
-            exponent = stack.pop(0)
+            # base = stack.pop(0)
+            # exponent = stack.pop(0)
+
+            # seraph
+            base_frame = stack.pop(0)
+            base = base_frame.get_value()
+            base_dep = base_frame.get_dep()
+            exponent_frame = stack.pop(0)
+            exponent = exponent_frame.get_value()
+            exponent_dep = exponent_frame.get_dep()
+
             # Type conversion is needed when they are mismatched
             if isAllReal(base, exponent):
                 computed = pow(base, exponent, 2**256)
@@ -1083,14 +1226,28 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                 new_var_name = gen.gen_arbitrary_var()
                 computed = BitVec(new_var_name, 256)
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
+
+            # seraph
+            new_dep = base_dep + exponent_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "SIGNEXTEND":
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
-            second = stack.pop(0)
+            # first = stack.pop(0)
+            # second = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+            second_frame = stack.pop(0)
+            second = second_frame.get_value()
+            second_dep = second_frame.get_dep()
+
             if isAllReal(first, second):
                 if first >= 32 or first < 0:
                     computed = second
@@ -1118,7 +1275,12 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                     solver.pop()
                 solver.pop()
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
+
+            # seraph
+            new_dep = first_dep + second_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     #
@@ -1127,8 +1289,17 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
     elif opcode == "LT":
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
-            second = stack.pop(0)
+            # first = stack.pop(0)
+            # second = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+            second_frame = stack.pop(0)
+            second = second_frame.get_value()
+            second_dep = second_frame.get_dep()
+
             if isAllReal(first, second):
                 first = to_unsigned(first)
                 second = to_unsigned(second)
@@ -1139,14 +1310,28 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             else:
                 computed = If(ULT(first, second), BitVecVal(1, 256), BitVecVal(0, 256))
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
+
+            # seraph
+            new_dep = first_dep + second_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "GT":
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
-            second = stack.pop(0)
+            # first = stack.pop(0)
+            # second = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+            second_frame = stack.pop(0)
+            second = second_frame.get_value()
+            second_dep = second_frame.get_dep()
+
             if isAllReal(first, second):
                 first = to_unsigned(first)
                 second = to_unsigned(second)
@@ -1157,14 +1342,28 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             else:
                 computed = If(UGT(first, second), BitVecVal(1, 256), BitVecVal(0, 256))
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
+
+            # seraph
+            new_dep = first_dep + second_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "SLT":  # Not fully faithful to signed comparison
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
-            second = stack.pop(0)
+            # first = stack.pop(0)
+            # second = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+            second_frame = stack.pop(0)
+            second = second_frame.get_value()
+            second_dep = second_frame.get_dep()
+
             if isAllReal(first, second):
                 first = to_signed(first)
                 second = to_signed(second)
@@ -1175,14 +1374,28 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             else:
                 computed = If(first < second, BitVecVal(1, 256), BitVecVal(0, 256))
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
+
+            # seraph
+            new_dep = first_dep + second_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "SGT":  # Not fully faithful to signed comparison
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
-            second = stack.pop(0)
+            # first = stack.pop(0)
+            # second = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+            second_frame = stack.pop(0)
+            second = second_frame.get_value()
+            second_dep = second_frame.get_dep()
+
             if isAllReal(first, second):
                 first = to_signed(first)
                 second = to_signed(second)
@@ -1193,14 +1406,28 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             else:
                 computed = If(first > second, BitVecVal(1, 256), BitVecVal(0, 256))
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
+
+            # seraph
+            new_dep = first_dep + second_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "EQ":
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
-            second = stack.pop(0)
+            # first = stack.pop(0)
+            # second = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+            second_frame = stack.pop(0)
+            second = second_frame.get_value()
+            second_dep = second_frame.get_dep()
+
             if isAllReal(first, second):
                 if first == second:
                     computed = 1
@@ -1209,7 +1436,12 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             else:
                 computed = If(first == second, BitVecVal(1, 256), BitVecVal(0, 256))
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
+
+            # seraph
+            new_dep = first_dep + second_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "ISZERO":
@@ -1218,7 +1450,13 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
         # Currently handled by try and catch
         if len(stack) > 0:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
+            # first = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+
             if isReal(first):
                 if first == 0:
                     computed = 1
@@ -1227,58 +1465,121 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             else:
                 computed = If(first == 0, BitVecVal(1, 256), BitVecVal(0, 256))
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
+
+            # seraph
+            new_dep = first_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "AND":
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
-            second = stack.pop(0)
+            # first = stack.pop(0)
+            # second = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+            second_frame = stack.pop(0)
+            second = second_frame.get_value()
+            second_dep = second_frame.get_dep()
+
             computed = first & second
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
+
+            # seraph
+            new_dep = first_dep + second_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "OR":
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
-            second = stack.pop(0)
+            # first = stack.pop(0)
+            # second = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+            second_frame = stack.pop(0)
+            second = second_frame.get_value()
+            second_dep = second_frame.get_dep()
 
             computed = first | second
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
 
+            # seraph
+            new_dep = first_dep + second_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "XOR":
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
-            second = stack.pop(0)
+            # first = stack.pop(0)
+            # second = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+            second_frame = stack.pop(0)
+            second = second_frame.get_value()
+            second_dep = second_frame.get_dep()
 
             computed = first ^ second
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
 
+            # seraph
+            new_dep = first_dep + second_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "NOT":
         if len(stack) > 0:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
+            # first = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
+
             computed = (~first) & UNSIGNED_BOUND_NUMBER
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
+
+            # seraph
+            new_dep = first_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "BYTE":
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            first = stack.pop(0)
+            # first = stack.pop(0)
+            # byte_index = 32 - first - 1
+            # second = stack.pop(0)
+
+            # seraph
+            first_frame = stack.pop(0)
+            first = first_frame.get_value()
+            first_dep = first_frame.get_dep()
             byte_index = 32 - first - 1
-            second = stack.pop(0)
+            second_frame = stack.pop(0)
+            second = second_frame.get_value()
+            second_dep = second_frame.get_dep()
 
             if isAllReal(first, second):
                 if first >= 32 or first < 0:
@@ -1298,7 +1599,12 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                     computed = computed >> (8 * byte_index)
                 solver.pop()
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # stack.insert(0, computed)
+
+            # seraph
+            new_dep = first_dep + second_dep
+            new_frame = ValueFrame(computed, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     #
@@ -1307,8 +1613,17 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
     elif opcode == "SHA3":
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            s0 = stack.pop(0)
-            s1 = stack.pop(0)
+            # s0 = stack.pop(0)
+            # s1 = stack.pop(0)
+
+            # seraph
+            s0_frame = stack.pop(0)
+            s0 = s0_frame.get_value()
+            s0_dep = s0_frame.get_dep()
+            s1_frame = stack.pop(0)
+            s1 = s1_frame.get_value()
+            s1_dep = s1_frame.get_dep()
+
             if isAllReal(s0, s1):
                 # simulate the hashing of sha3
                 data = [str(x) for x in memory[s0: s0 + s1]]
@@ -1318,18 +1633,33 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                 position = base64.b64encode(position)
                 position = position.decode('utf-8', 'strict')
                 if position in sha3_list:
-                    stack.insert(0, sha3_list[position])
+                    # stack.insert(0, sha3_list[position])
+
+                    # seraph
+                    new_dep = s0_dep + s1_dep
+                    new_frame = ValueFrame(sha3_list[position], new_dep)
+                    stack.insert(0, new_frame)
                 else:
                     new_var_name = gen.gen_arbitrary_var()
                     new_var = BitVec(new_var_name, 256)
                     sha3_list[position] = new_var
-                    stack.insert(0, new_var)
+                    # stack.insert(0, new_var)
+
+                    # seraph
+                    new_dep = s0_dep + s1_dep
+                    new_frame = ValueFrame(new_var, new_dep)
+                    stack.insert(0, new_frame)
             else:
                 # push into the execution a fresh symbolic variable
                 new_var_name = gen.gen_arbitrary_var()
                 new_var = BitVec(new_var_name, 256)
                 path_conditions_and_vars[new_var_name] = new_var
-                stack.insert(0, new_var)
+                # stack.insert(0, new_var)
+
+                # seraph
+                new_dep = s0_dep + s1_dep
+                new_frame = ValueFrame(new_var, new_dep)
+                stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     #
@@ -1337,11 +1667,22 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
     #
     elif opcode == "ADDRESS":  # get address of currently executing account
         global_state["pc"] = global_state["pc"] + 1
-        stack.insert(0, path_conditions_and_vars["Ia"])
+        # stack.insert(0, path_conditions_and_vars["Ia"])
+
+        # seraph
+        new_dep = []
+        new_frame = ValueFrame(path_conditions_and_vars["Ia"], new_dep)
+        stack.insert(0, new_frame)
     elif opcode == "BALANCE":
         if len(stack) > 0:
             global_state["pc"] = global_state["pc"] + 1
-            address = stack.pop(0)
+            # address = stack.pop(0)
+
+            # seraph
+            address_frame = stack.pop(0)
+            address = address_frame.get_value()
+            address_dep = address_frame.get_dep()
+
             if isReal(address) and global_params.USE_GLOBAL_BLOCKCHAIN:
                 new_var = data_source.getBalance(address)
             else:
@@ -1356,23 +1697,49 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             else:
                 hashed_address = str(address)
             global_state["balance"][hashed_address] = new_var
-            stack.insert(0, new_var)
+            # stack.insert(0, new_var)
+
+            # seraph
+            new_dep = address_dep
+            new_frame = ValueFrame(new_var, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "CALLER":  # get caller address
         # that is directly responsible for this execution
         global_state["pc"] = global_state["pc"] + 1
-        stack.insert(0, global_state["sender_address"])
+        # stack.insert(0, global_state["sender_address"])
+
+        # seraph
+        new_dep = []
+        new_frame = ValueFrame(global_state["sender_address"], new_dep)
+        stack.insert(0, new_frame)
     elif opcode == "ORIGIN":  # get execution origination address
         global_state["pc"] = global_state["pc"] + 1
-        stack.insert(0, global_state["origin"])
+        # stack.insert(0, global_state["origin"])
+
+        # seraph
+        new_dep = []
+        new_frame = ValueFrame(global_state["origin"], new_dep)
+        stack.insert(0, new_frame)
     elif opcode == "CALLVALUE":  # get value of this transaction
         global_state["pc"] = global_state["pc"] + 1
-        stack.insert(0, global_state["value"])
+        # stack.insert(0, global_state["value"])
+
+        # seraph
+        new_dep = []
+        new_frame = ValueFrame(global_state["value"], new_dep)
+        stack.insert(0, new_frame)
     elif opcode == "CALLDATALOAD":  # from input data from environment
         if len(stack) > 0:
             global_state["pc"] = global_state["pc"] + 1
-            position = stack.pop(0)
+            # position = stack.pop(0)
+
+            # seraph
+            position_frame = stack.pop(0)
+            position = position_frame.get_value()
+            position_dep = position_frame.get_dep()
+
             if g_src_map:
                 source_code = g_src_map.get_source_code(global_state['pc'] - 1)
                 if source_code.startswith("function") and isReal(position) and current_func_name in g_src_map.func_name_to_params:
@@ -1391,7 +1758,13 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             else:
                 new_var = BitVec(new_var_name, 256)
                 path_conditions_and_vars[new_var_name] = new_var
-            stack.insert(0, new_var)
+            # stack.insert(0, new_var)
+
+            # seraph
+            position_dep.append(gen.gen_taint_label(TAINT_Id, position))
+            new_dep = position_dep
+            new_frame = ValueFrame(new_var, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "CALLDATASIZE":
@@ -1402,7 +1775,12 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
         else:
             new_var = BitVec(new_var_name, 256)
             path_conditions_and_vars[new_var_name] = new_var
-        stack.insert(0, new_var)
+        # stack.insert(0, new_var)
+
+        # seraph
+        new_dep = []
+        new_frame = ValueFrame(new_var, new_dep)
+        stack.insert(0, new_frame)
     elif opcode == "CALLDATACOPY":  # Copy input data to memory
         #  TODO: Don't know how to simulate this yet
         if len(stack) > 2:
@@ -1420,13 +1798,30 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
         with open(evm_file_name, 'r') as evm_file:
             evm = evm_file.read()[:-1]
             code_size = len(evm)/2
-            stack.insert(0, code_size)
+            # stack.insert(0, code_size)
+
+            # seraph
+            new_dep = []
+            new_frame = ValueFrame(code_size, new_dep)
+            stack.insert(0, new_frame)
     elif opcode == "CODECOPY":
         if len(stack) > 2:
             global_state["pc"] = global_state["pc"] + 1
-            mem_location = stack.pop(0)
-            code_from = stack.pop(0)
-            no_bytes = stack.pop(0)
+            # mem_location = stack.pop(0)
+            # code_from = stack.pop(0)
+            # no_bytes = stack.pop(0)
+
+            # seraph
+            mem_location_frame = stack.pop(0)
+            mem_location = mem_location_frame.get_value()
+            mem_location_dep = mem_location_frame.get_dep()
+            code_from_frame = stack.pop(0)
+            code_from = code_from_frame.get_value()
+            code_from_dep = code_from_frame.get_dep()
+            no_bytes_frame = stack.pop(0)
+            no_bytes = no_bytes_frame.get_value()
+            no_bytes_dep = no_bytes_frame.get_dep()
+
             current_miu_i = global_state["miu_i"]
 
             if isAllReal(mem_location, current_miu_i, code_from, no_bytes):
@@ -1448,6 +1843,9 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                     end = start + no_bytes * 2
                     code = evm[start: end]
                 mem[mem_location] = int(code, 16)
+
+                # seraph
+                # do not handle params.mem and params.memory for now
             else:
                 new_var_name = gen.gen_code_var("Ia", code_from, no_bytes)
                 if new_var_name in path_conditions_and_vars:
@@ -1482,17 +1880,38 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
         global_state["pc"] += 1
         new_var_name = gen.gen_arbitrary_var()
         new_var = BitVec(new_var_name, 256)
-        stack.insert(0, new_var)
+        # stack.insert(0, new_var)
+
+        # seraph
+        new_dep = []
+        new_frame = ValueFrame(new_var, new_dep)
+        stack.insert(0, new_frame)
     elif opcode == "GASPRICE":
         global_state["pc"] = global_state["pc"] + 1
         stack.insert(0, global_state["gas_price"])
+
+        # seraph
+        new_dep = []
+        new_frame = ValueFrame(global_state["gas_price"], new_dep)
+        stack.insert(0, new_frame)
     elif opcode == "EXTCODESIZE":
         if len(stack) > 0:
             global_state["pc"] = global_state["pc"] + 1
-            address = stack.pop(0)
+            # address = stack.pop(0)
+
+            # seraph
+            address_frame = stack.pop(0)
+            address = address_frame.get_value()
+            address_dep = address_frame.get_dep()
+
             if isReal(address) and global_params.USE_GLOBAL_BLOCKCHAIN:
                 code = data_source.getCode(address)
-                stack.insert(0, len(code)/2)
+                # stack.insert(0, len(code)/2)
+
+                # seraph
+                new_dep = address_dep
+                new_frame = ValueFrame(len(code)/2, new_dep)
+                stack.insert(0, new_frame)
             else:
                 #not handled yet
                 new_var_name = gen.gen_code_size_var(address)
@@ -1501,16 +1920,36 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                 else:
                     new_var = BitVec(new_var_name, 256)
                     path_conditions_and_vars[new_var_name] = new_var
-                stack.insert(0, new_var)
+                # stack.insert(0, new_var)
+
+                # seraph
+                new_dep = address_dep
+                new_frame = ValueFrame(new_var, new_dep)
+                stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "EXTCODECOPY":
         if len(stack) > 3:
             global_state["pc"] = global_state["pc"] + 1
-            address = stack.pop(0)
-            mem_location = stack.pop(0)
-            code_from = stack.pop(0)
-            no_bytes = stack.pop(0)
+            # address = stack.pop(0)
+            # mem_location = stack.pop(0)
+            # code_from = stack.pop(0)
+            # no_bytes = stack.pop(0)
+
+            # seraph
+            address_frame = stack.pop(0)
+            address = address_frame.get_value()
+            address_dep = address_frame.get_dep()
+            mem_location_frame = stack.pop(0)
+            mem_location = mem_location_frame.get_value()
+            mem_location_dep = mem_location_frame.get_dep()
+            code_from_frame = stack.pop(0)
+            code_from = code_from_frame.get_value()
+            code_from_dep = code_from_frame.get_dep()
+            no_bytes_frame = stack.pop(0)
+            no_bytes = no_bytes_frame.get_value()
+            no_bytes_dep = no_bytes_frame.get_dep()
+
             current_miu_i = global_state["miu_i"]
 
             if isAllReal(address, mem_location, current_miu_i, code_from, no_bytes) and USE_GLOBAL_BLOCKCHAIN:
@@ -1526,6 +1965,9 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                 end = start + no_bytes * 2
                 code = evm[start: end]
                 mem[mem_location] = int(code, 16)
+
+                # seraph
+                # do not handle params.mem and params.memory for now
             else:
                 new_var_name = gen.gen_code_var(address, code_from, no_bytes)
                 if new_var_name in path_conditions_and_vars:
@@ -1545,6 +1987,10 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                 solver.pop()
                 mem.clear() # very conservative
                 mem[str(mem_location)] = new_var
+
+                # seraph
+                # do not handle params.mem and params.memory for now
+
             global_state["miu_i"] = current_miu_i
         else:
             raise ValueError('STACK underflow')
@@ -1554,31 +2000,67 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
     elif opcode == "BLOCKHASH":  # information from block header
         if len(stack) > 0:
             global_state["pc"] = global_state["pc"] + 1
-            stack.pop(0)
+            # stack.pop(0)
+
+            # seraph
+            block_number_frame = stack.pop(0)
+            block_number = block_number_frame.get_value()
+            block_number_dep = block_number_frame.get_dep()
+
             new_var_name = "IH_blockhash"
             if new_var_name in path_conditions_and_vars:
                 new_var = path_conditions_and_vars[new_var_name]
             else:
                 new_var = BitVec(new_var_name, 256)
                 path_conditions_and_vars[new_var_name] = new_var
-            stack.insert(0, new_var)
+            # stack.insert(0, new_var)
+
+            # seraph
+            new_dep = block_number_dep
+            new_frame = ValueFrame(new_var, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "COINBASE":  # information from block header
         global_state["pc"] = global_state["pc"] + 1
-        stack.insert(0, global_state["currentCoinbase"])
+        # stack.insert(0, global_state["currentCoinbase"])
+
+        # seraph
+        new_dep = []
+        new_frame = ValueFrame(global_state["currentCoinbase"], new_dep)
+        stack.insert(0, new_frame)
     elif opcode == "TIMESTAMP":  # information from block header
         global_state["pc"] = global_state["pc"] + 1
-        stack.insert(0, global_state["currentTimestamp"])
+        # stack.insert(0, global_state["currentTimestamp"])
+
+        # seraph
+        new_dep = []
+        new_frame = ValueFrame(global_state["currentTimestamp"], new_dep)
+        stack.insert(0, new_frame)
     elif opcode == "NUMBER":  # information from block header
         global_state["pc"] = global_state["pc"] + 1
-        stack.insert(0, global_state["currentNumber"])
+        # stack.insert(0, global_state["currentNumber"])
+
+        # seraph
+        new_dep = []
+        new_frame = ValueFrame(global_state["currentNumber"], new_dep)
+        stack.insert(0, new_frame)
     elif opcode == "DIFFICULTY":  # information from block header
         global_state["pc"] = global_state["pc"] + 1
-        stack.insert(0, global_state["currentDifficulty"])
+        # stack.insert(0, global_state["currentDifficulty"])
+
+        # seraph
+        new_dep = []
+        new_frame = ValueFrame(global_state["currentDifficulty"], new_dep)
+        stack.insert(0, new_frame)
     elif opcode == "GASLIMIT":  # information from block header
         global_state["pc"] = global_state["pc"] + 1
-        stack.insert(0, global_state["currentGasLimit"])
+        # stack.insert(0, global_state["currentGasLimit"])
+
+        # seraph
+        new_dep = []
+        new_frame = ValueFrame(global_state["currentGasLimit"], new_dep)
+        stack.insert(0, new_frame)
     #
     #  50s: Stack, Memory, Storage, and Flow Information
     #
@@ -1591,7 +2073,13 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
     elif opcode == "MLOAD":
         if len(stack) > 0:
             global_state["pc"] = global_state["pc"] + 1
-            address = stack.pop(0)
+            # address = stack.pop(0)
+
+            # seraph
+            address_frame = stack.pop(0)
+            address = address_frame.get_value()
+            address_dep = address_frame.get_dep()
+
             current_miu_i = global_state["miu_i"]
             if isAllReal(address, current_miu_i) and address in mem:
                 if six.PY2:
@@ -1601,7 +2089,12 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                 if temp > current_miu_i:
                     current_miu_i = temp
                 value = mem[address]
-                stack.insert(0, value)
+                # stack.insert(0, value)
+
+                # seraph
+                new_dep = address_dep
+                new_frame = ValueFrame(value, new_dep)
+                stack.insert(0, new_frame)
             else:
                 temp = ((address + 31) / 32) + 1
                 current_miu_i = to_symbolic(current_miu_i)
@@ -1620,6 +2113,12 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                     new_var = BitVec(new_var_name, 256)
                     path_conditions_and_vars[new_var_name] = new_var
                 stack.insert(0, new_var)
+
+                # seraph
+                new_dep = address_dep
+                new_frame = ValueFrame(new_var, new_dep)
+                stack.insert(0, new_frame)
+
                 if isReal(address):
                     mem[address] = new_var
                 else:
@@ -1630,8 +2129,17 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
     elif opcode == "MSTORE":
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            stored_address = stack.pop(0)
-            stored_value = stack.pop(0)
+            # stored_address = stack.pop(0)
+            # stored_value = stack.pop(0)
+
+            # seraph
+            stored_address_frame = stack.pop(0)
+            stored_address = stored_address_frame.get_value()
+            stored_address_dep = stored_address_frame.get_dep()
+            stored_value_frame = stack.pop(0)
+            stored_value = stored_value_frame.get_value()
+            stored_value_dep = stored_value_frame.get_dep()
+
             current_miu_i = global_state["miu_i"]
             if isReal(stored_address):
                 # preparing data for hashing later
@@ -1669,8 +2177,17 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
     elif opcode == "MSTORE8":
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
-            stored_address = stack.pop(0)
-            temp_value = stack.pop(0)
+            # stored_address = stack.pop(0)
+            # temp_value = stack.pop(0)
+
+            # seraph
+            stored_address_frame = stack.pop(0)
+            stored_address = stored_address_frame.get_value()
+            stored_address_dep = stored_address_frame.get_dep()
+            temp_value_frame = stack.pop(0)
+            temp_value = temp_value_frame.get_value()
+            temp_value_dep = temp_value_frame.get_dep()
+
             stored_value = temp_value % 256  # get the least byte
             current_miu_i = global_state["miu_i"]
             if isAllReal(stored_address, current_miu_i):
@@ -1701,18 +2218,55 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
     elif opcode == "SLOAD":
         if len(stack) > 0:
             global_state["pc"] = global_state["pc"] + 1
-            position = stack.pop(0)
+            # position = stack.pop(0)
+
+            # seraph
+            position_frame = stack.pop(0)
+            position = position_frame.get_value()
+            position_dep = position_frame.get_dep()
+
             if isReal(position) and position in global_state["Ia"]:
-                value = global_state["Ia"][position]
-                stack.insert(0, value)
+                # value = global_state["Ia"][position]
+
+                # seraph
+                value_frame = global_state["Ia"][position]
+                value = value_frame.get_value()
+                value_dep = value_frame.get_dep()
+
+                # stack.insert(0, value)
+
+                # seraph
+                new_dep = value_dep
+                new_frame = ValueFrame(value, new_dep)
+                stack.insert(0, new_frame)
             elif global_params.USE_GLOBAL_STORAGE and isReal(position) and position not in global_state["Ia"]:
                 value = data_source.getStorageAt(position)
-                global_state["Ia"][position] = value
-                stack.insert(0, value)
+                # global_state["Ia"][position] = value
+
+                # seraph
+                new_dep = []
+                new_frame = ValueFrame(value, new_dep)
+                global_state["Ia"][position] = new_frame
+
+                # stack.insert(0, value)
+
+                # seraph
+                stack.insert(0, new_frame)
             else:
                 if str(position) in global_state["Ia"]:
-                    value = global_state["Ia"][str(position)]
-                    stack.insert(0, value)
+                    # value = global_state["Ia"][str(position)]
+
+                    # seraph
+                    value_frame = global_state["Ia"][str(position)]
+                    value = value_frame.get_value()
+                    value_dep = value_frame.get_dep()
+
+                    # stack.insert(0, value)
+
+                    # seraph
+                    new_dep = value_dep
+                    new_frame = ValueFrame(value, new_dep)
+                    stack.insert(0, new_frame)
                 else:
                     if is_expr(position):
                         position = simplify(position)
@@ -1733,11 +2287,22 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                     else:
                         new_var = BitVec(new_var_name, 256)
                         path_conditions_and_vars[new_var_name] = new_var
-                    stack.insert(0, new_var)
+                    # stack.insert(0, new_var)
+
+                    # seraph
+                    new_dep = []
+                    new_frame = ValueFrame(new_var, new_dep)
+                    stack.insert(0, new_frame)
                     if isReal(position):
-                        global_state["Ia"][position] = new_var
+                        # global_state["Ia"][position] = new_var
+
+                        # seraph
+                        global_state["Ia"][position] = new_frame
                     else:
-                        global_state["Ia"][str(position)] = new_var
+                        # global_state["Ia"][str(position)] = new_var
+
+                        # seraph
+                        global_state["Ia"][str(position)] = new_frame
         else:
             raise ValueError('STACK underflow')
 
@@ -1746,19 +2311,44 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             for call_pc in calls:
                 calls_affect_state[call_pc] = True
             global_state["pc"] = global_state["pc"] + 1
-            stored_address = stack.pop(0)
-            stored_value = stack.pop(0)
+            # stored_address = stack.pop(0)
+            # stored_value = stack.pop(0)
+
+            # seraph
+            stored_address_frame = stack.pop(0)
+            stored_address = stored_address_frame.get_value()
+            stored_address_dep = stored_address_frame.get_dep()
+            stored_value_frame = stack.pop(0)
+            stored_value = stored_value_frame.get_value()
+            stored_value_dep = stored_value_frame.get_dep()
+
             if isReal(stored_address):
                 # note that the stored_value could be unknown
-                global_state["Ia"][stored_address] = stored_value
+                # global_state["Ia"][stored_address] = stored_value
+
+                # seraph
+                new_dep = stored_value_dep
+                new_frame = ValueFrame(stored_value, new_dep)
+                global_state["Ia"][stored_address] = new_frame
             else:
                 # note that the stored_value could be unknown
-                global_state["Ia"][str(stored_address)] = stored_value
+                # global_state["Ia"][str(stored_address)] = stored_value
+
+                # seraph
+                new_dep = stored_value_dep
+                new_frame = ValueFrame(stored_value, new_dep)
+                global_state["Ia"][str(stored_address)] = new_frame
         else:
             raise ValueError('STACK underflow')
     elif opcode == "JUMP":
         if len(stack) > 0:
-            target_address = stack.pop(0)
+            # target_address = stack.pop(0)
+
+            # seraph
+            target_address_frame = stack.pop(0)
+            target_address = target_address_frame.get_value()
+            target_address_dep = target_address_frame.get_dep()
+
             if isSymbolic(target_address):
                 try:
                     target_address = int(str(simplify(target_address)))
@@ -1772,14 +2362,26 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
     elif opcode == "JUMPI":
         # We need to prepare two branches
         if len(stack) > 1:
-            target_address = stack.pop(0)
+            # target_address = stack.pop(0)
+
+            # seraph
+            target_address_frame = stack.pop(0)
+            target_address = target_address_frame.get_value()
+            target_address_dep = target_address_frame.get_dep()
+
             if isSymbolic(target_address):
                 try:
                     target_address = int(str(simplify(target_address)))
                 except:
                     raise TypeError("Target address must be an integer")
             vertices[block].set_jump_target(target_address)
-            flag = stack.pop(0)
+            # flag = stack.pop(0)
+
+            # seraph
+            flag_frame = stack.pop(0)
+            flag = flag_frame.get_value()
+            flag_dep = flag_frame.get_dep()
+
             branch_expression = (BitVecVal(0, 1) == BitVecVal(1, 1))
             if isReal(flag):
                 if flag != 0:
@@ -1792,12 +2394,23 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
         else:
             raise ValueError('STACK underflow')
     elif opcode == "PC":
-        stack.insert(0, global_state["pc"])
+        # stack.insert(0, global_state["pc"])
+
+        # seraph
+        new_dep = []
+        new_frame = ValueFrame(global_state["pc"], new_dep)
+        stack.insert(0, new_frame)
+
         global_state["pc"] = global_state["pc"] + 1
     elif opcode == "MSIZE":
         global_state["pc"] = global_state["pc"] + 1
         msize = 32 * global_state["miu_i"]
-        stack.insert(0, msize)
+        # stack.insert(0, msize)
+
+        # seraph
+        new_dep = []
+        new_frame = ValueFrame(msize, new_dep)
+        stack.insert(0, new_frame)
     elif opcode == "GAS":
         # In general, we do not have this precisely. It depends on both
         # the initial gas and the amount has been depleted
@@ -1807,7 +2420,12 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
         new_var_name = gen.gen_gas_var()
         new_var = BitVec(new_var_name, 256)
         path_conditions_and_vars[new_var_name] = new_var
-        stack.insert(0, new_var)
+        # stack.insert(0, new_var)
+
+        # seraph
+        new_dep = []
+        new_frame = ValueFrame(new_var, new_dep)
+        stack.insert(0, new_frame)
     elif opcode == "JUMPDEST":
         # Literally do nothing
         global_state["pc"] = global_state["pc"] + 1
@@ -1818,9 +2436,18 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
         position = int(opcode[4:], 10)
         global_state["pc"] = global_state["pc"] + 1 + position
         pushed_value = int(instr_parts[1], 16)
-        stack.insert(0, pushed_value)
+        # stack.insert(0, pushed_value)
+
+        # seraph
+        new_dep = []
+        new_frame = ValueFrame(pushed_value, new_dep)
+        stack.insert(0, new_frame)
+
         if global_params.UNIT_TEST == 3: # test evm symbolic
-            stack[0] = BitVecVal(stack[0], 256)
+            # stack[0] = BitVecVal(stack[0], 256)
+
+            # seraph
+            stack[0].set_value(BitVecVal(stack[0].get_value(), 256))
     #
     #  80s: Duplication Operations
     #
@@ -1828,8 +2455,16 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
         global_state["pc"] = global_state["pc"] + 1
         position = int(opcode[3:], 10) - 1
         if len(stack) > position:
-            duplicate = stack[position]
-            stack.insert(0, duplicate)
+            # duplicate = stack[position]
+            # stack.insert(0, duplicate)
+
+            # seraph
+            duplicate_frame = stack[position]
+            duplicate = duplicate_frame.get_value()
+            duplicate_dep = duplicate_frame.get_dep()
+            new_dep = duplicate_dep
+            new_frame = ValueFrame(duplicate, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
 
@@ -1868,7 +2503,12 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             stack.pop(0)
             new_var_name = gen.gen_arbitrary_var()
             new_var = BitVec(new_var_name, 256)
-            stack.insert(0, new_var)
+            # stack.insert(0, new_var)
+
+            # seraph
+            new_dep = []
+            new_frame = ValueFrame(new_var, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "CALL":
@@ -1880,8 +2520,17 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                     calls_affect_state[call_pc] = False
             global_state["pc"] = global_state["pc"] + 1
             outgas = stack.pop(0)
-            recipient = stack.pop(0)
-            transfer_amount = stack.pop(0)
+            # recipient = stack.pop(0)
+            # transfer_amount = stack.pop(0)
+
+            # seraph
+            recipient_frame = stack.pop(0)
+            recipient = recipient_frame.get_value()
+            recipient_dep = recipient_frame.get_dep()
+            transfer_amount_frame = stack.pop(0)
+            transfer_amount = transfer_amount_frame.get_value()
+            transfer_amount_dep = transfer_amount_frame.get_dep()
+
             start_data_input = stack.pop(0)
             size_data_input = stack.pop(0)
             start_data_output = stack.pop(0)
@@ -1889,9 +2538,15 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             # in the paper, it is shaky when the size of data output is
             # min of stack[6] and the | o |
 
+
             if isReal(transfer_amount):
                 if transfer_amount == 0:
-                    stack.insert(0, 1)   # x = 0
+                    # stack.insert(0, 1)   # x = 0
+
+                    # seraph
+                    new_dep = recipient_dep
+                    new_frame = ValueFrame(1, new_dep)
+                    stack.insert(0, new_frame)  # x = 0
                     return
 
             # Let us ignore the call depth
@@ -1903,10 +2558,21 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             if check_sat(solver) == unsat:
                 # this means not enough fund, thus the execution will result in exception
                 solver.pop()
-                stack.insert(0, 0)   # x = 0
+                # stack.insert(0, 0)   # x = 0
+
+                # seraph
+                new_dep = recipient_dep
+                new_frame = ValueFrame(0, new_dep)
+                stack.insert(0, new_frame)  # x = 0
             else:
                 # the execution is possibly okay
-                stack.insert(0, 1)   # x = 1
+                # stack.insert(0, 1)   # x = 1
+
+                # seraph
+                new_dep = recipient_dep
+                new_frame = ValueFrame(1, new_dep)
+                stack.insert(0, new_frame)  # x = 1
+
                 solver.pop()
                 solver.add(is_enough_fund)
                 path_conditions_and_vars["path_condition"].append(is_enough_fund)
@@ -1948,7 +2614,13 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                     calls_affect_state[call_pc] = False
             global_state["pc"] = global_state["pc"] + 1
             outgas = stack.pop(0)
-            recipient = stack.pop(0) # this is not used as recipient
+            # recipient = stack.pop(0) # this is not used as recipient
+
+            # seraph
+            recipient_frame = stack.pop(0)
+            recipient = recipient_frame.get_value()
+            recipient_dep = recipient_frame.get_dep()
+
             if global_params.USE_GLOBAL_STORAGE:
                 if isReal(recipient):
                     recipient = hex(recipient)
@@ -1958,7 +2630,13 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                 else:
                     recipients.add(None)
 
-            transfer_amount = stack.pop(0)
+            # transfer_amount = stack.pop(0)
+
+            # seraph
+            transfer_amount_frame = stack.pop(0)
+            transfer_amount = transfer_amount_frame.get_value()
+            transfer_amount_dep = transfer_amount_frame.get_dep()
+
             start_data_input = stack.pop(0)
             size_data_input = stack.pop(0)
             start_data_output = stack.pop(0)
@@ -1968,7 +2646,13 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
 
             if isReal(transfer_amount):
                 if transfer_amount == 0:
-                    stack.insert(0, 1)   # x = 0
+                    # stack.insert(0, 1)   # x = 0
+
+                    # seraph
+                    new_dep = recipient_dep
+                    new_frame = ValueFrame(1, new_dep)
+                    stack.insert(0, new_frame)  # x = 0
+
                     return
 
             # Let us ignore the call depth
@@ -1980,10 +2664,21 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             if check_sat(solver) == unsat:
                 # this means not enough fund, thus the execution will result in exception
                 solver.pop()
-                stack.insert(0, 0)   # x = 0
+                # stack.insert(0, 0)   # x = 0
+
+                # seraph
+                new_dep = recipient_dep
+                new_frame = ValueFrame(0, new_dep)
+                stack.insert(0, new_frame)  # x = 0
             else:
                 # the execution is possibly okay
-                stack.insert(0, 1)   # x = 1
+                # stack.insert(0, 1)   # x = 1
+
+                # seraph
+                new_dep = recipient_dep
+                new_frame = ValueFrame(1, new_dep)
+                stack.insert(0, new_frame)  # x = 0
+
                 solver.pop()
                 solver.add(is_enough_fund)
                 path_conditions_and_vars["path_condition"].append(is_enough_fund)
@@ -1995,7 +2690,13 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
         if len(stack) > 5:
             global_state["pc"] += 1
             stack.pop(0)
-            recipient = stack.pop(0)
+            # recipient = stack.pop(0)
+
+            # seraph
+            recipient_frame = stack.pop(0)
+            recipient = recipient_frame.get_value()
+            recipient_dep = recipient_frame.get_dep()
+
             if global_params.USE_GLOBAL_STORAGE:
                 if isReal(recipient):
                     recipient = hex(recipient)
@@ -2011,7 +2712,12 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             stack.pop(0)
             new_var_name = gen.gen_arbitrary_var()
             new_var = BitVec(new_var_name, 256)
-            stack.insert(0, new_var)
+            # stack.insert(0, new_var)
+
+            # seraph
+            new_dep = recipient_dep
+            new_frame = ValueFrame(new_var, new_dep)
+            stack.insert(0, new_frame)
         else:
             raise ValueError('STACK underflow')
     elif opcode in ("RETURN", "REVERT"):
@@ -2028,7 +2734,13 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             raise ValueError('STACK underflow')
     elif opcode == "SUICIDE":
         global_state["pc"] = global_state["pc"] + 1
-        recipient = stack.pop(0)
+        # recipient = stack.pop(0)
+
+        # seraph
+        recipient_frame = stack.pop(0)
+        recipient = recipient_frame.get_value()
+        recipient_dep = recipient_frame.get_dep()
+
         transfer_amount = global_state["balance"]["Ia"]
         global_state["balance"]["Ia"] = 0
         if isReal(recipient):

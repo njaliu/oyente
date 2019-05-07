@@ -1,3 +1,6 @@
+from constant import *
+
+
 class Generator:
     def __init__(self):
         self.countstack = 0
@@ -58,3 +61,8 @@ class Generator:
 
     def gen_code_size_var(self, address):
         return "code_size_" + str(address)
+
+    # seraph
+    def gen_taint_label(self, category, var):
+        if category == TAINT_Id:
+            return 'Id' + str(var)
