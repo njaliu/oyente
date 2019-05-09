@@ -26,6 +26,7 @@ import global_params
 # seraph
 from value_frame import *
 from constant import *
+from graph import *
 
 log = logging.getLogger(__name__)
 
@@ -179,6 +180,10 @@ def initGlobalVars():
     global rfile
     if global_params.REPORT_MODE:
         rfile = open(g_disasm_file + '.report', 'w')
+
+    # seraph
+    global seraph
+    seraph = SemanticGraph('Seraph-v1.0')
 
 def is_testing_evm():
     return global_params.UNIT_TEST != 0
@@ -741,6 +746,8 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
     global g_src_map
     global calls_affect_state
     global data_source
+    # seraph
+    global seraph
 
     stack = params.stack
     mem = params.mem
@@ -2338,6 +2345,16 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                 new_dep = stored_value_dep
                 new_frame = ValueFrame(stored_value, new_dep)
                 global_state["Ia"][str(stored_address)] = new_frame
+
+            # seraph
+            if len(new_dep) > 0:
+                source_node = new_dep[0]
+                sink_node = gen.gen_owner_store_var(stored_address)
+                path_condition_list = path_conditions_and_vars["path_condition"]
+                store_var_dict = global_state["Ia"]
+                condition_store_vars = extract_store_var_from_path_conditions(path_condition_list, store_var_dict)
+                seraph.update_graph(source_node, sink_node, condition_store_vars)
+
         else:
             raise ValueError('STACK underflow')
     elif opcode == "JUMP":
@@ -2764,6 +2781,19 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             log.critical("Unknown instruction: %s" % opcode)
             exit(UNKNOWN_INSTRUCTION)
         raise Exception('UNKNOWN INSTRUCTION: ' + opcode)
+
+
+# seraph: extract Ia-store-x in path conditions
+def extract_store_var_from_path_conditions(path_conditions_list, store_vars_dict):
+    extracted = []
+    for pos in store_vars_dict.keys():
+        store_prefix = gen.gen_owner_store_var(pos)
+        for cond in path_conditions_list:
+            if store_prefix in str(cond):
+                extracted.append(store_prefix)
+
+    return extracted
+
 
 # Detect if a money flow depends on the timestamp
 def detect_time_dependency():
