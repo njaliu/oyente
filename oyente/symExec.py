@@ -227,6 +227,9 @@ def change_format():
         disasm_file.write("\n".join(file_contents))
 
 def build_cfg_and_analyze():
+    # seraph
+    global seraph
+
     change_format()
     with open(g_disasm_file, 'r') as disasm_file:
         disasm_file.readline()  # Remove first line
@@ -235,6 +238,9 @@ def build_cfg_and_analyze():
         construct_bb()
         construct_static_edges()
         full_sym_exec()  # jump targets are constructed on the fly
+
+        # seraph
+        seraph.to_dot_file(DOT_FILE)
 
 
 def print_cfg():
@@ -2023,7 +2029,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             # stack.insert(0, new_var)
 
             # seraph
-            new_dep = block_number_dep
+            new_dep = block_number_dep + [TAINT_BLOCKHASH]
             new_frame = ValueFrame(new_var, new_dep)
             stack.insert(0, new_frame)
         else:
@@ -2041,7 +2047,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
         # stack.insert(0, global_state["currentTimestamp"])
 
         # seraph
-        new_dep = []
+        new_dep = [TAINT_TIMESTAMP]
         new_frame = ValueFrame(global_state["currentTimestamp"], new_dep)
         stack.insert(0, new_frame)
     elif opcode == "NUMBER":  # information from block header
@@ -2049,7 +2055,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
         # stack.insert(0, global_state["currentNumber"])
 
         # seraph
-        new_dep = []
+        new_dep = [TAINT_BLOCKNUMBER]
         new_frame = ValueFrame(global_state["currentNumber"], new_dep)
         stack.insert(0, new_frame)
     elif opcode == "DIFFICULTY":  # information from block header
@@ -2347,14 +2353,14 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                 global_state["Ia"][str(stored_address)] = new_frame
 
             # seraph
-            if len(new_dep) > 0:
-                source_node = new_dep[0]
+            for dep in new_dep:
+                source_node = dep
                 sink_node = gen.gen_owner_store_var(stored_address)
                 path_condition_list = path_conditions_and_vars["path_condition"]
                 store_var_dict = global_state["Ia"]
                 condition_store_vars = extract_store_var_from_path_conditions(path_condition_list, store_var_dict)
-                seraph.update_graph(source_node, sink_node, condition_store_vars)
-
+                current_pc = global_state["pc"] - 1
+                seraph.update_graph(source_node, sink_node, condition_store_vars, current_pc)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "JUMP":
