@@ -2356,11 +2356,12 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             for dep in new_dep:
                 source_node = dep
                 sink_node = gen.gen_owner_store_var(stored_address)
+                op = identify_operation_type(stored_value)
                 path_condition_list = path_conditions_and_vars["path_condition"]
                 store_var_dict = global_state["Ia"]
                 condition_store_vars = extract_store_var_from_path_conditions(path_condition_list, store_var_dict)
                 current_pc = global_state["pc"] - 1
-                seraph.update_graph(source_node, sink_node, condition_store_vars, current_pc)
+                seraph.update_graph(source_node, sink_node, op, condition_store_vars, current_pc)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "JUMP":
@@ -2799,6 +2800,14 @@ def extract_store_var_from_path_conditions(path_conditions_list, store_vars_dict
                 extracted.append(store_prefix)
 
     return extracted
+
+
+# seraph: identify the operation type
+def identify_operation_type(value):
+    if ADD_SYMBOL in str(value):
+        return ADD_OP_TYPE
+    else:
+        return SIMPLE_OP_TYPE
 
 
 # Detect if a money flow depends on the timestamp
